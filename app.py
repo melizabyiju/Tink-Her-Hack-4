@@ -24,10 +24,25 @@ class CustomDepthwiseConv2D(DepthwiseConv2D):
     def __init__(self, **kwargs):
         kwargs.pop('groups', None)
         super().__init__(**kwargs)
+        
+import tensorflow as tf
+tf.keras.backend.clear_session()
 
 MODEL_PATH = 'model.h5'
-model = load_model(MODEL_PATH, compile=False, custom_objects={'DepthwiseConv2D': CustomDepthwiseConv2D})
+model = None
 
+def get_model():
+    global model
+    if model is None:
+        import tensorflow as tf
+        tf.keras.backend.clear_session()
+        model = load_model(
+            MODEL_PATH,
+            compile=False,
+            custom_objects={'DepthwiseConv2D': CustomDepthwiseConv2D}
+        )
+    return model
+    
 def get_db_connection():
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
@@ -187,7 +202,8 @@ def detect():
     img_array = img_array / 255.0
 
     # Prediction
-    preds = model.predict(img_array)
+    current_model = get_model()
+    preds = current_model.predict(img_array)
     pred_class = np.argmax(preds, axis=1)[0]
     class_names = ['Clean', 'Polluted']  # adjust as per your model
     result = class_names[pred_class]
@@ -219,5 +235,8 @@ def detect():
     })
 
 # Initialize configuration for hosting
+import os
+
 if __name__ == '__main__':
-    app.run()
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host='0.0.0.0', port=port)
